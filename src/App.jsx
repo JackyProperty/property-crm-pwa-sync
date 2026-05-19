@@ -31,7 +31,55 @@ const I=p=><input className="input"{...p}/>
 const S=({children,...p})=><select className="input"{...p}>{children}</select>
 const TA=p=><textarea className="textarea"{...p}/>
 
-function Auth(){const[mode,setMode]=useState('login'),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);async function submit(e){e.preventDefault();setBusy(true);setMsg('');try{const{error}=mode==='login'?await supabase.auth.signInWithPassword({email,password}):await supabase.auth.signUp({email,password});if(error)setMsg(error.message);else if(mode==='signup'){setMsg('Account created. Confirm email if required, then login.');setMode('login')}}catch(err){setMsg(err.message||'Something went wrong.')}finally{setBusy(false)}}return <div className="auth-page"><C className="auth-card"><div className="brand center"><div className="brand-icon"><Building2/></div><div><h1>Property Wanted CRM V2</h1><p>Route A PWA + Push Notification</p></div></div><div className="auth-tabs"><button className={mode==='login'?'active':''}onClick={()=>setMode('login')}>Login</button><button className={mode==='signup'?'active':''}onClick={()=>setMode('signup')}>Create Account</button></div><form onSubmit={submit}className="stack"><F label="Email"><I type="email"required value={email}onChange={e=>setEmail(e.target.value.trim())}/></F><F label="Password"><I type="password"required minLength={6}value={password}onChange={e=>setPassword(e.target.value)}/></F><B disabled={busy}className="full">{busy?'Processing...':mode==='login'?'Login':'Create Account'}</B>{msg&&<p className="notice">{msg}</p>}</form></C></div>}
+function Auth(){
+  const [mode,setMode]=useState('login')
+  const [email,setEmail]=useState('')
+  const [password,setPassword]=useState('')
+  const [msg,setMsg]=useState('')
+  const [busy,setBusy]=useState(false)
+
+  async function withTimeout(promise, seconds=15){
+    let timer
+    const timeout=new Promise((_,reject)=>{
+      timer=setTimeout(()=>reject(new Error('Login request timeout. Please check Supabase URL / key, internet connection, then try again.')),seconds*1000)
+    })
+    try{
+      return await Promise.race([promise,timeout])
+    }finally{
+      clearTimeout(timer)
+    }
+  }
+
+  async function submit(e){
+    e.preventDefault()
+    if(busy)return
+    setBusy(true)
+    setMsg('')
+
+    const cleanEmail=String(email||'').trim().toLowerCase()
+
+    try{
+      const result = mode==='login'
+        ? await withTimeout(supabase.auth.signInWithPassword({email:cleanEmail,password}),15)
+        : await withTimeout(supabase.auth.signUp({email:cleanEmail,password}),15)
+
+      if(result?.error){
+        setMsg(result.error.message)
+      }else if(mode==='signup'){
+        setMsg('Account created. Confirm email if required, then login.')
+        setMode('login')
+      }else{
+        setMsg('Login successful. Loading your CRM...')
+      }
+    }catch(err){
+      setMsg(err?.message || 'Something went wrong. Please try again.')
+    }finally{
+      setBusy(false)
+    }
+  }
+
+  return <div className="auth-page"><C className="auth-card"><div className="brand center"><div className="brand-icon"><Building2/></div><div><h1>Property Wanted CRM V3</h1><p>Route A PWA + Push Notification</p></div></div><div className="auth-tabs"><button type="button" className={mode==='login'?'active':''}onClick={()=>{setMode('login');setMsg('')}}>Login</button><button type="button" className={mode==='signup'?'active':''}onClick={()=>{setMode('signup');setMsg('')}}>Create Account</button></div><form onSubmit={submit}className="stack"><F label="Email"><I type="email"required value={email}onChange={e=>setEmail(e.target.value)}placeholder="you@email.com"/></F><F label="Password"><I type="password"required minLength={6}value={password}onChange={e=>setPassword(e.target.value)}placeholder="Minimum 6 characters"/></F><B type="submit" disabled={busy}className="full">{busy?'Processing...':mode==='login'?'Login':'Create Account'}</B>{msg&&<p className="notice">{msg}</p>}</form></C></div>
+}
 
 function useData(session){const[data,setData]=useState(()=>{try{return{...empty,...JSON.parse(localStorage.getItem(localKey)||'{}')}}catch{return empty}}),[loading,setLoading]=useState(false),[role,setRole]=useState('admin'),[membership,setMembership]=useState(null);const sync=isSupabaseConfigured&&session?'cloud':'local';useEffect(()=>{if(sync==='local')localStorage.setItem(localKey,JSON.stringify(data))},[data,sync]);async function detect(){if(sync!=='cloud'||!session?.user?.email){setRole('admin');return{role:'admin',membership:null}}const{data:m}=await supabase.from(T.member).select('*').ilike('member_email',session.user.email.toLowerCase()).eq('status','active').limit(1);if(m?.length){setRole('co_agent');setMembership(m[0]);return{role:'co_agent',membership:m[0]}}setRole('admin');setMembership(null);return{role:'admin',membership:null}}async function fetchAll(){if(sync!=='cloud')return;setLoading(true);try{const ri=await detect();const keys=ri.role==='co_agent'?['agent','member']:Object.keys(empty);const entries=await Promise.all(keys.map(async k=>{const{data:rows,error}=await supabase.from(T[k]).select('*').order('created_at',{ascending:false});if(error)throw error;return[k,rows||[]]}));setData({...empty,...Object.fromEntries(entries)})}finally{setLoading(false)}}useEffect(()=>{fetchAll().catch(e=>alert(e.message))},[sync,session?.user?.id]);useEffect(()=>{if(sync!=='cloud')return;const ch=supabase.channel('crm-v2').on('postgres_changes',{event:'*',schema:'public',table:'owner_properties'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'agent_listings'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'new_project_listings'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'client_requests'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'appointments'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'reminders'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'agent_group_members'},fetchAll).subscribe();return()=>supabase.removeChannel(ch)},[sync,session?.user?.id]);async function add(k,row){if(sync==='cloud'){const r={...row,user_id:session.user.id};if(k==='agent'&&role==='co_agent'){r.shared_to_user_id=membership?.owner_user_id;r.agent_email=session.user.email}if(k==='member'){r.owner_user_id=session.user.id;r.member_email=String(r.member_email||'').trim().toLowerCase()}const{error}=await supabase.from(T[k]).insert(r);if(error)throw error;await fetchAll()}else setData(p=>({...p,[k]:[{...row,id:uid('L'),created_at:new Date().toISOString()},...p[k]]}))}async function update(k,id,row){if(sync==='cloud'){const{error}=await supabase.from(T[k]).update(row).eq('id',id);if(error)throw error;await fetchAll()}else setData(p=>({...p,[k]:p[k].map(x=>x.id===id?{...x,...row}:x)}))}async function remove(k,id){if(sync==='cloud'){const{error}=await supabase.from(T[k]).delete().eq('id',id);if(error)throw error;await fetchAll()}else setData(p=>({...p,[k]:p[k].filter(x=>x.id!==id)}))}return{data,loading,role,membership,sync,fetchAll,add,update,remove}}
 

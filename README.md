@@ -124,3 +124,12 @@ Run `supabase/migration_v3.sql` after V2 migration. It adds:
 - New Project Listing page and matching into Buyer Matching
 
 This migration is also safe: it only adds columns/table/policies. It does not delete existing records.
+
+
+## Login fix note
+
+This package includes a safer login/signup screen with:
+- 15 second auth request timeout
+- clearer error message
+- no infinite Processing state
+- normalized email before login/signup
