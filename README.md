@@ -111,3 +111,16 @@ Output Directory: dist
 ```
 
 After changing Vercel environment variables, redeploy the project.
+
+
+## V3 upgrade notes
+
+Run `supabase/migration_v3.sql` after V2 migration. It adds:
+
+- property_category: Residential / Agriculture / Commercial / Commercial HDA
+- lot_type: Intermediate / Intermediate Corner / Corner / End Lot / Not Applicable
+- buyer request property_title / tenure / lot type / category requirements
+- new_project_listings table
+- New Project Listing page and matching into Buyer Matching
+
+This migration is also safe: it only adds columns/table/policies. It does not delete existing records.
