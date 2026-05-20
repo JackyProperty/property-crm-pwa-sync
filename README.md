@@ -58,3 +58,9 @@ For `send-test-push`:
 For `send-due-reminders`:
 - Verify JWT with legacy secret: OFF
 - Protect with CRON_SECRET
+
+
+## V4.1 owner listing save fix
+
+This package fixes an Owner Listing save issue where agent-only fields were accidentally sent to the `owner_properties` table, causing Supabase to return HTTP 400.
+No database migration is needed for this fix if you already ran `migration_v3.sql` and `migration_v4.sql`.
