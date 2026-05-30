@@ -1,7 +1,7 @@
 {
-  "name": "property-crm-pwa-route-a-v4-contact-database",
+  "name": "property-crm-pwa-route-a-v7-propertyguru-all-in-one",
   "private": true,
-  "version": "4.0.0",
+  "version": "7.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

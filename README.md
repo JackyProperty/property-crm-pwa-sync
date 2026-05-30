@@ -64,3 +64,56 @@ For `send-due-reminders`:
 
 This package fixes an Owner Listing save issue where agent-only fields were accidentally sent to the `owner_properties` table, causing Supabase to return HTTP 400.
 No database migration is needed for this fix if you already ran `migration_v3.sql` and `migration_v4.sql`.
+
+
+## V5 Edit Feature Upgrade
+
+This version adds Edit buttons and an Edit Record modal for:
+
+- Owner Listings
+- Other Agent / Shared Listings
+- Buyer Requests
+- New Project Listings
+- Appointment Calendar records
+- Reminder records
+- Contact Database records
+- Co-Agent Members
+
+No new Supabase migration is required if `migration_v3.sql` and `migration_v4.sql` were already executed.
+Upload this package to GitHub, wait for Vercel redeploy, then clear old PWA cache if needed.
+
+
+## V6 Area Units Upgrade
+
+This version adds area unit support.
+
+Supported units:
+- sqft
+- sqm
+- acre
+- hectare
+
+Added to:
+- Owner Listings: built-up unit, land size unit
+- Other Agent / Shared Listings: built-up unit, land size unit
+- New Project Listings: built-up unit, land size unit
+- Buyer Requests: minimum built-up unit
+- Edit modal: all unit fields can be edited
+- Buyer Matching: built-up matching converts units to square feet before comparing
+
+Database migration required:
+```text
+supabase/migration_v6_units.sql
+```
+
+Run this migration in Supabase SQL Editor before using the new version.
+
+
+## V7 Added
+- PropertyGuru-style dropdowns for owner/agent listings
+- Property sub type / unit type
+- Facilities and unit features
+- Title type, direction, availability, lease term
+- Area units and dimension units
+- Condition, electricity and lift fields
+- Migration file: supabase/migration_v7_propertyguru.sql
