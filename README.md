@@ -173,3 +173,12 @@ Create Listing Wizard steps:
 8. Preview
 
 No extra migration is required beyond `supabase/migration_v8_team_crm.sql` if V7 migrations were already run.
+
+
+## V8.2 Null Date Fix
+
+This version fixes Available Date behavior in the step-by-step listing wizard.
+
+- When Available = Immediately, Available Date is cleared and saved as NULL.
+- When Available = Choose a date, the selected date is saved.
+- No new Supabase migration is required.
