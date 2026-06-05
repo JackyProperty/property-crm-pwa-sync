@@ -156,3 +156,20 @@ supabase/migration_v8_team_crm.sql
 ```
 
 Run this after the V7 migration. It does not drop or delete existing data.
+
+
+## V8.1 Correction - Team CRM + Step-by-Step Wizard
+
+V8.1 includes the V8 Team CRM permission/audit system and also restores the intended Mudah.my / PropertyGuru-style step-by-step listing flow.
+
+Create Listing Wizard steps:
+1. Category
+2. Type
+3. Location
+4. Price & Size
+5. Title & Condition
+6. Facilities
+7. Contact
+8. Preview
+
+No extra migration is required beyond `supabase/migration_v8_team_crm.sql` if V7 migrations were already run.

@@ -1,7 +1,7 @@
 {
-  "name": "property-crm-pwa-route-a-v8-team-crm",
+  "name": "property-crm-pwa-route-a-v8-1-team-crm-wizard",
   "private": true,
-  "version": "8.0.0",
+  "version": "8.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
