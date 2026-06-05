@@ -1,7 +1,7 @@
 {
-  "name": "property-crm-pwa-route-a-v7-1-propertyguru-save-fix",
+  "name": "property-crm-pwa-route-a-v8-team-crm",
   "private": true,
-  "version": "7.1.0",
+  "version": "8.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

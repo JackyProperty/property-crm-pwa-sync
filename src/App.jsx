@@ -3,8 +3,8 @@ import*as XLSX from'xlsx'
 import{Bell,BellRing,Building2,CalendarDays,CheckCircle2,Cloud,CloudOff,Download,Handshake,Home,LogOut,MessageCircle,Plus,RefreshCw,Search,Share2,Smartphone,Trash2,Users,BarChart3,KanbanSquare,UserPlus,Pencil}from'lucide-react'
 import{isSupabaseConfigured,supabase,vapidPublicKey}from'./supabaseClient'
 
-const T={owner:'owner_properties',agent:'agent_listings',project:'new_project_listings',request:'client_requests',follow:'follow_ups',appt:'appointments',rem:'reminders',member:'agent_group_members',push:'push_subscriptions',contact:'contacts'}
-const empty={owner:[],agent:[],project:[],request:[],follow:[],appt:[],rem:[],member:[],push:[],contact:[]}
+const T={owner:'owner_properties',agent:'agent_listings',project:'new_project_listings',request:'client_requests',follow:'follow_ups',appt:'appointments',rem:'reminders',member:'agent_group_members',push:'push_subscriptions',contact:'contacts',team:'teams',teamMember:'team_members',audit:'audit_logs'}
+const empty={owner:[],agent:[],project:[],request:[],follow:[],appt:[],rem:[],member:[],push:[],contact:[],team:[],teamMember:[],audit:[]}
 const cats=['Residential','Commercial','Industrial','Agricultural','Agriculture','Commercial HDA','Other']
 const propertyTypeOptions={
   Residential:['Apartment / Condo / Service Residence','Terrace / Link House','Semi-D / Bungalow / Villa','Townhouse','Residential Land','Other Residential'],
@@ -51,6 +51,9 @@ const stat=['Active','Pending','Sold','Rented','Inactive']
 const remTypes=['Client Follow Up','Owner Follow Up','Agent Follow Up','Viewing','Offer Deadline','Loan Status','Agreement','Listing Check','Other']
 const contactTypes=['Buyer','Owner','Tenant','Investor','Agent','Past Client','Other']
 const contactStatuses=['Active','Past Client','Not Buying Now','Future Follow Up','Blacklist','Opt Out','Inactive']
+const teamRoles=['Owner','Manager','Senior Agent','Agent','Co-Agent','Admin Staff']
+const roleLevels={Owner:100,Manager:80,'Senior Agent':60,Agent:40,'Admin Staff':35,'Co-Agent':20}
+const visibilityOptions=['Private','Team','Company','Selected Agents']
 const localKey='property-crm-v2-local'
 
 const n=v=>Number.isFinite(Number(v))?Number(v):0
@@ -78,6 +81,9 @@ const listToCsv=v=>(v||[]).filter(Boolean).join(', ')
 const toggleChoice=(arr,val)=>arr.includes(val)?arr.filter(x=>x!==val):[...arr,val]
 function ChipSelect({options=[],values=[],onChange}){return <div className="chip-wrap">{options.map(opt=>{const active=values.includes(opt);return <button type="button"key={opt}className={`chip ${active?'active':''}`}onClick={()=>onChange(toggleChoice(values,opt))}>{opt}</button>})}</div>}
 function Segmented({options=[],value,onChange}){return <div className="segment-wrap">{options.map(opt=><button type="button"key={opt}className={`segment ${value===opt?'active':''}`}onClick={()=>onChange(opt)}>{opt}</button>)}</div>}
+
+const canManageTeam=role=>['Owner','Manager'].includes(role)
+const canViewAll=role=>['Owner','Manager','Senior Agent','Admin Staff'].includes(role)
 
 
 const hiddenEditFields=['id','user_id','created_at','updated_at','subscription','endpoint','shared_to_user_id','owner_user_id','member_user_id','agent_email','local_notified','notification_sent','contact_id','related_request_id','related_owner_listing_id','related_agent_listing_id']
@@ -139,12 +145,196 @@ function Auth(){
     }
   }
 
-  return <div className="auth-page"><C className="auth-card"><div className="brand center"><div className="brand-icon"><Building2/></div><div><h1>Property Wanted CRM V7.1</h1><p>Route A PWA + Listing Save Fix + Push</p></div></div><div className="auth-tabs"><button type="button" className={mode==='login'?'active':''}onClick={()=>{setMode('login');setMsg('')}}>Login</button><button type="button" className={mode==='signup'?'active':''}onClick={()=>{setMode('signup');setMsg('')}}>Create Account</button></div><form onSubmit={submit}className="stack"><F label="Email"><I type="email"required value={email}onChange={e=>setEmail(e.target.value)}placeholder="you@email.com"/></F><F label="Password"><I type="password"required minLength={6}value={password}onChange={e=>setPassword(e.target.value)}placeholder="Minimum 6 characters"/></F><B type="submit" disabled={busy}className="full">{busy?'Processing...':mode==='login'?'Login':'Create Account'}</B>{msg&&<p className="notice">{msg}</p>}</form></C></div>
+  return <div className="auth-page"><C className="auth-card"><div className="brand center"><div className="brand-icon"><Building2/></div><div><h1>Property Wanted CRM V8.1</h1><p>Route A PWA + Listing Save Fix + Push</p></div></div><div className="auth-tabs"><button type="button" className={mode==='login'?'active':''}onClick={()=>{setMode('login');setMsg('')}}>Login</button><button type="button" className={mode==='signup'?'active':''}onClick={()=>{setMode('signup');setMsg('')}}>Create Account</button></div><form onSubmit={submit}className="stack"><F label="Email"><I type="email"required value={email}onChange={e=>setEmail(e.target.value)}placeholder="you@email.com"/></F><F label="Password"><I type="password"required minLength={6}value={password}onChange={e=>setPassword(e.target.value)}placeholder="Minimum 6 characters"/></F><B type="submit" disabled={busy}className="full">{busy?'Processing...':mode==='login'?'Login':'Create Account'}</B>{msg&&<p className="notice">{msg}</p>}</form></C></div>
 }
 
-function useData(session){const[data,setData]=useState(()=>{try{return{...empty,...JSON.parse(localStorage.getItem(localKey)||'{}')}}catch{return empty}}),[loading,setLoading]=useState(false),[role,setRole]=useState('admin'),[membership,setMembership]=useState(null);const sync=isSupabaseConfigured&&session?'cloud':'local';useEffect(()=>{if(sync==='local')localStorage.setItem(localKey,JSON.stringify(data))},[data,sync]);async function detect(){if(sync!=='cloud'||!session?.user?.email){setRole('admin');return{role:'admin',membership:null}}const{data:m}=await supabase.from(T.member).select('*').ilike('member_email',session.user.email.toLowerCase()).eq('status','active').limit(1);if(m?.length){setRole('co_agent');setMembership(m[0]);return{role:'co_agent',membership:m[0]}}setRole('admin');setMembership(null);return{role:'admin',membership:null}}async function fetchAll(){if(sync!=='cloud')return;setLoading(true);try{const ri=await detect();const keys=ri.role==='co_agent'?['agent','member']:Object.keys(empty);const entries=await Promise.all(keys.map(async k=>{const{data:rows,error}=await supabase.from(T[k]).select('*').order('created_at',{ascending:false});if(error)throw error;return[k,rows||[]]}));setData({...empty,...Object.fromEntries(entries)})}finally{setLoading(false)}}useEffect(()=>{fetchAll().catch(e=>alert(e.message))},[sync,session?.user?.id]);useEffect(()=>{if(sync!=='cloud')return;const ch=supabase.channel('crm-v2').on('postgres_changes',{event:'*',schema:'public',table:'owner_properties'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'agent_listings'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'new_project_listings'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'client_requests'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'appointments'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'reminders'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'agent_group_members'},fetchAll).on('postgres_changes',{event:'*',schema:'public',table:'contacts'},fetchAll).subscribe();return()=>supabase.removeChannel(ch)},[sync,session?.user?.id]);async function add(k,row){if(sync==='cloud'){const r={...row,user_id:session.user.id};if(k==='agent'&&role==='co_agent'){r.shared_to_user_id=membership?.owner_user_id;r.agent_email=session.user.email}if(k==='member'){r.owner_user_id=session.user.id;r.member_email=String(r.member_email||'').trim().toLowerCase()}const{error}=await supabase.from(T[k]).insert(r);if(error)throw error;await fetchAll()}else setData(p=>({...p,[k]:[{...row,id:uid('L'),created_at:new Date().toISOString()},...p[k]]}))}async function update(k,id,row){if(sync==='cloud'){const{error}=await supabase.from(T[k]).update(row).eq('id',id);if(error)throw error;await fetchAll()}else setData(p=>({...p,[k]:p[k].map(x=>x.id===id?{...x,...row}:x)}))}async function remove(k,id){if(sync==='cloud'){const{error}=await supabase.from(T[k]).delete().eq('id',id);if(error)throw error;await fetchAll()}else setData(p=>({...p,[k]:p[k].filter(x=>x.id!==id)}))}return{data,loading,role,membership,sync,fetchAll,add,update,remove}}
 
-function Header({active,setActive,session,crm}){const admin=[['dashboard','Report Dashboard',BarChart3],['pipeline','Client Pipeline',KanbanSquare],['calendar','Appointment Calendar',CalendarDays],['reminders','Reminders + Push',Bell],['owners','Owner Listings',Home],['projects','New Project Listing',Building2],['agents','Agent Sharing Group',Share2],['requests','Buyer Requests',Search],['contacts','Contact Database',Users],['matches','Buyer Matching',Handshake],['export','Excel Export',Download],['install','Install',Smartphone]],agent=[['agents','Submit Listing',Share2],['install','Install',Smartphone]],tabs=crm.role==='co_agent'?agent:admin;return <header className="topbar"><div className="topbar-inner"><div className="brand"><div className="brand-icon"><Building2/></div><div><h1>Property Wanted CRM V7.1</h1><p>{crm.role==='co_agent'?'Co-agent listing submission only':'PWA + Sync + Push + PropertyGuru-style Options'}</p></div></div><div className="top-actions"><Badge tone={crm.sync==='cloud'?'green':'amber'}>{crm.sync==='cloud'?<Cloud size={13}/>:<CloudOff size={13}/>} {crm.sync==='cloud'?'Cloud Sync On':'Local Demo Mode'}</Badge><Badge tone={crm.role==='co_agent'?'purple':'blue'}>{crm.role==='co_agent'?'Co-Agent':'Admin'}</Badge><B variant="secondary"onClick={crm.fetchAll}><RefreshCw size={16}/>Refresh</B>{session&&<B variant="danger"onClick={()=>supabase.auth.signOut()}><LogOut size={16}/>Logout</B>}</div></div><nav className="tabs">{tabs.map(([id,label,Icon])=><button key={id}className={active===id?'active':''}onClick={()=>setActive(id)}><Icon size={16}/>{label}</button>)}</nav></header>}
+function useData(session){
+  const[data,setData]=useState(()=>{try{return{...empty,...JSON.parse(localStorage.getItem(localKey)||'{}')}}catch{return empty}})
+  const[loading,setLoading]=useState(false)
+  const[role,setRole]=useState('Owner')
+  const[membership,setMembership]=useState(null)
+  const[activeTeam,setActiveTeam]=useState(null)
+  const sync=isSupabaseConfigured&&session?'cloud':'local'
+
+  useEffect(()=>{if(sync==='local')localStorage.setItem(localKey,JSON.stringify(data))},[data,sync])
+
+  async function audit(action,tableName,recordId=null,details={}){
+    if(sync!=='cloud')return
+    try{
+      await supabase.from(T.audit).insert({
+        user_id:session.user.id,
+        team_id:activeTeam?.id||membership?.team_id||null,
+        action,
+        table_name:tableName,
+        record_id:recordId,
+        details
+      })
+    }catch(e){console.warn('audit log failed',e)}
+  }
+
+  async function ensureTeam(){
+    if(sync!=='cloud'||!session?.user?.email)return{role:'Owner',membership:null,team:null}
+    const email=session.user.email.toLowerCase()
+
+    const{data:tm,error:tmErr}=await supabase
+      .from(T.teamMember)
+      .select('*, teams(*)')
+      .eq('user_id',session.user.id)
+      .eq('status','active')
+      .limit(1)
+    if(tmErr)console.warn(tmErr)
+    if(tm?.length){
+      const m=tm[0]
+      setRole(m.role||'Agent')
+      setMembership(m)
+      setActiveTeam(m.teams||null)
+      return{role:m.role||'Agent',membership:m,team:m.teams||null}
+    }
+
+    const{data:byEmail,error:emailErr}=await supabase
+      .from(T.teamMember)
+      .select('*, teams(*)')
+      .ilike('email',email)
+      .eq('status','active')
+      .limit(1)
+    if(emailErr)console.warn(emailErr)
+    if(byEmail?.length){
+      const m=byEmail[0]
+      await supabase.from(T.teamMember).update({user_id:session.user.id}).eq('id',m.id)
+      m.user_id=session.user.id
+      setRole(m.role||'Agent')
+      setMembership(m)
+      setActiveTeam(m.teams||null)
+      return{role:m.role||'Agent',membership:m,team:m.teams||null}
+    }
+
+    const defaultName='JL Property Team'
+    const{data:newTeam,error:teamErr}=await supabase
+      .from(T.team)
+      .insert({owner_user_id:session.user.id,name:defaultName})
+      .select()
+      .single()
+    if(teamErr)throw teamErr
+
+    const{data:newMember,error:memberErr}=await supabase
+      .from(T.teamMember)
+      .insert({
+        team_id:newTeam.id,
+        user_id:session.user.id,
+        email,
+        name:session.user.user_metadata?.name||email,
+        role:'Owner',
+        status:'active'
+      })
+      .select()
+      .single()
+    if(memberErr)throw memberErr
+
+    setRole('Owner')
+    setMembership(newMember)
+    setActiveTeam(newTeam)
+    return{role:'Owner',membership:newMember,team:newTeam}
+  }
+
+  function filterRowsForRole(k,rows,ctx){
+    const r=ctx.role||'Agent'
+    if(!Array.isArray(rows))return[]
+    if(canViewAll(r)||!ctx.team)return rows
+    if(['owner','agent','project','request','contact','appt','rem'].includes(k)){
+      return rows.filter(x=>x.assigned_to===session.user.id||x.created_by===session.user.id||x.user_id===session.user.id||x.visibility==='Team'||x.visibility==='Company')
+    }
+    return rows
+  }
+
+  async function fetchAll(){
+    if(sync!=='cloud')return
+    setLoading(true)
+    try{
+      const ctx=await ensureTeam()
+      const keys=Object.keys(empty)
+      const entries=await Promise.all(keys.map(async k=>{
+        let q=supabase.from(T[k]).select('*')
+        if(['owner','agent','project','request','contact','appt','rem'].includes(k)&&ctx.team?.id){
+          q=q.eq('team_id',ctx.team.id)
+        }
+        if(k==='team'&&ctx.team?.id)q=q.eq('id',ctx.team.id)
+        if(k==='teamMember'&&ctx.team?.id)q=q.eq('team_id',ctx.team.id)
+        if(k==='audit'&&ctx.team?.id)q=q.eq('team_id',ctx.team.id).limit(200)
+        if(!['push'].includes(k))q=q.order('created_at',{ascending:false})
+        const{data:rows,error}=await q
+        if(error)throw error
+        return[k,filterRowsForRole(k,rows||[],ctx)]
+      }))
+      setData({...empty,...Object.fromEntries(entries)})
+    }finally{setLoading(false)}
+  }
+
+  useEffect(()=>{fetchAll().catch(e=>alert(e.message))},[sync,session?.user?.id])
+
+  useEffect(()=>{
+    if(sync!=='cloud')return
+    const ch=supabase.channel('crm-v8')
+      .on('postgres_changes',{event:'*',schema:'public',table:'owner_properties'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'agent_listings'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'new_project_listings'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'client_requests'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'appointments'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'reminders'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'contacts'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'team_members'},fetchAll)
+      .on('postgres_changes',{event:'*',schema:'public',table:'audit_logs'},fetchAll)
+      .subscribe()
+    return()=>supabase.removeChannel(ch)
+  },[sync,session?.user?.id,activeTeam?.id])
+
+  function teamFields(row){
+    if(sync!=='cloud')return row
+    return {
+      ...row,
+      team_id:activeTeam?.id||membership?.team_id||row.team_id||null,
+      created_by:row.created_by||session.user.id,
+      assigned_to:row.assigned_to||session.user.id,
+      visibility:row.visibility||'Team'
+    }
+  }
+
+  async function add(k,row){
+    if(sync==='cloud'){
+      let r={...row,user_id:session.user.id}
+      if(['owner','agent','project','request','contact','appt','rem'].includes(k))r=teamFields(r)
+      if(k==='agent'&&role==='Co-Agent'){r.shared_to_user_id=activeTeam?.owner_user_id;r.agent_email=session.user.email}
+      if(k==='member'){r.owner_user_id=session.user.id;r.member_email=String(r.member_email||'').trim().toLowerCase()}
+      if(k==='teamMember'){r.team_id=activeTeam?.id;r.email=String(r.email||'').trim().toLowerCase()}
+      const{data:inserted,error}=await supabase.from(T[k]).insert(r).select().single()
+      if(error)throw error
+      await audit('create',T[k],inserted?.id||null,r)
+      await fetchAll()
+    }else setData(p=>({...p,[k]:[{...row,id:uid('L'),created_at:new Date().toISOString()},...p[k]]}))
+  }
+
+  async function update(k,id,row){
+    if(sync==='cloud'){
+      const{error}=await supabase.from(T[k]).update(row).eq('id',id)
+      if(error)throw error
+      await audit('update',T[k],id,row)
+      await fetchAll()
+    }else setData(p=>({...p,[k]:p[k].map(x=>x.id===id?{...x,...row}:x)}))
+  }
+
+  async function remove(k,id){
+    if(sync==='cloud'){
+      const{error}=await supabase.from(T[k]).delete().eq('id',id)
+      if(error)throw error
+      await audit('delete',T[k],id,{})
+      await fetchAll()
+    }else setData(p=>({...p,[k]:p[k].filter(x=>x.id!==id)}))
+  }
+
+  return{data,loading,role,membership,activeTeam,sync,fetchAll,add,update,remove,audit}
+}
+
+function Header({active,setActive,session,crm}){const admin=[['dashboard','Report Dashboard',BarChart3],['team','Team CRM',Users],['audit','Audit Log',Search],['pipeline','Client Pipeline',KanbanSquare],['calendar','Appointment Calendar',CalendarDays],['reminders','Reminders + Push',Bell],['owners','Owner Listings',Home],['projects','New Project Listing',Building2],['agents','Agent Sharing Group',Share2],['requests','Buyer Requests',Search],['contacts','Contact Database',Users],['matches','Buyer Matching',Handshake],['export','Excel Export',Download],['install','Install',Smartphone]],agent=[['agents','Submit Listing',Share2],['install','Install',Smartphone]],tabs=crm.role==='Co-Agent'?agent:admin;return <header className="topbar"><div className="topbar-inner"><div className="brand"><div className="brand-icon"><Building2/></div><div><h1>Property Wanted CRM V8.1</h1><p>{crm.role==='Co-Agent'?'Co-agent listing submission only':'Team CRM + Permissions + Audit Log'}</p></div></div><div className="top-actions"><Badge tone={crm.sync==='cloud'?'green':'amber'}>{crm.sync==='cloud'?<Cloud size={13}/>:<CloudOff size={13}/>} {crm.sync==='cloud'?'Cloud Sync On':'Local Demo Mode'}</Badge><Badge tone={crm.role==='Co-Agent'?'purple':'blue'}>{crm.role||'Owner'}</Badge><B variant="secondary"onClick={crm.fetchAll}><RefreshCw size={16}/>Refresh</B>{session&&<B variant="danger"onClick={()=>supabase.auth.signOut()}><LogOut size={16}/>Logout</B>}</div></div><nav className="tabs">{tabs.map(([id,label,Icon])=><button key={id}className={active===id?'active':''}onClick={()=>setActive(id)}><Icon size={16}/>{label}</button>)}</nav></header>}
 
 function Dashboard({data,matches}){const hot=Object.entries(data.request.reduce((a,r)=>{String(r.preferred_area||'').split(/[,.\/|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>a[x]=(a[x]||0)+1);return a},{})).sort((a,b)=>b[1]-a[1]).slice(0,8);const stats=[['Owner Listings',data.owner.filter(x=>x.status==='Active').length,Home],['Shared Agent Listings',data.agent.filter(x=>x.status==='Active').length,Share2],['New Project Listings',data.project.filter(x=>x.status==='Active').length,Building2],['Buyer Requests',data.request.filter(x=>!['Closed','Lost'].includes(x.status)).length,Users],['Strong Matches',matches.filter(x=>x.score>=75).length,Handshake],['Appointments',data.appt.filter(x=>x.status!=='Done').length,CalendarDays],['Reminders',data.rem.filter(x=>x.status!=='Done').length,Bell],['Contacts',data.contact.length,Users]];return <div className="stack"><div className="stats">{stats.map(([l,v,Icon])=><C key={l}><div className="stat-row"><div><p>{l}</p><h2>{v}</h2></div><div className="stat-icon"><Icon/></div></div></C>)}</div><div className="grid two"><C><h2>Top Buyer Matches</h2><div className="list">{matches.slice(0,6).map(m=><div className="item"key={m.listing.id+m.request.id}><div><strong>{m.request.client_name}</strong><p>{m.listing.title}</p><small>{m.listing.source_label} · {m.reasons.join(' · ')}</small></div><Badge tone={m.score>=80?'green':'amber'}>{m.score}%</Badge></div>)}{!matches.length&&<p className="muted">No matches yet.</p>}</div></C><C><h2>Hot Areas</h2>{hot.map(([a,c])=><p className="report-line"key={a}><b>{a}</b><span>{c}</span></p>)}{!hot.length&&<p className="muted">No data yet.</p>}</C></div></div>}
 
@@ -166,7 +356,7 @@ function ListingForm({kind,onAdd,role,membership}){
     commission_sharing:'50/50',status:'Active',notes:''
   })
   const [form,setForm]=useState(makeInitial),[msg,setMsg]=useState('')
-  useEffect(()=>{if(role==='co_agent'&&membership)setForm(p=>({...p,agent_name:membership.member_name||p.agent_name,agent_phone:membership.member_phone||p.agent_phone,agent_whatsapp:membership.member_whatsapp||p.agent_whatsapp,agency:membership.agency||p.agency}))},[role,membership?.id])
+  useEffect(()=>{if(role==='Co-Agent'&&membership)setForm(p=>({...p,agent_name:membership.member_name||p.agent_name,agent_phone:membership.member_phone||p.agent_phone,agent_whatsapp:membership.member_whatsapp||p.agent_whatsapp,agency:membership.agency||p.agency}))},[role,membership?.id])
   const u=(k,v)=>setForm(p=>({...p,[k]:v}))
   const typeOptions=typeOptionsFor(form.property_category)
   const subTypeOptions=subtypeOptionsFor(form.property_category,form.property_type)
@@ -182,7 +372,7 @@ function ListingForm({kind,onAdd,role,membership}){
       const row={...cleanForm,price:n(form.price),min_price:n(form.min_price),bedrooms:n(form.bedrooms),bathrooms:n(form.bathrooms),built_up:n(form.built_up),land_size:n(form.land_size),lease_year_remaining:n(form.lease_year_remaining),built_up_width:n(form.built_up_width),built_up_length:n(form.built_up_length),land_width:n(form.land_width),land_length:n(form.land_length),parking_spots:n(form.parking_spots),electricity_supply:n(form.electricity_supply),cargo_lifts:n(form.cargo_lifts),passenger_lifts:n(form.passenger_lifts),maximum_lift_capacity:n(form.maximum_lift_capacity)}
       await onAdd(row)
       const next=makeInitial()
-      if(role==='co_agent'&&membership){next.agent_name=membership.member_name||'';next.agent_phone=membership.member_phone||'';next.agent_whatsapp=membership.member_whatsapp||'';next.agency=membership.agency||''}
+      if(role==='Co-Agent'&&membership){next.agent_name=membership.member_name||'';next.agent_phone=membership.member_phone||'';next.agent_whatsapp=membership.member_whatsapp||'';next.agency=membership.agency||''}
       setForm(next)
       setMsg('Listing saved successfully.')
     }catch(err){
@@ -190,7 +380,7 @@ function ListingForm({kind,onAdd,role,membership}){
       setMsg(err?.message||'Save failed. Please check Supabase migration and Console error.')
     }
   }
-  return <C><h2>{isOwner?'新增 Owner Listing (V7)':role==='co_agent'?'Submit Your Listing (V7)':'新增 Other Agent / Shared Listing (V7)'}</h2>{role==='co_agent'&&<p className="muted">Your account only has permission to submit/manage your own shared listings.</p>}<form className="form-grid"onSubmit={submit}>
+  return <C><h2>{isOwner?'新增 Owner Listing (V7)':role==='Co-Agent'?'Submit Your Listing (V7)':'新增 Other Agent / Shared Listing (V7)'}</h2>{role==='Co-Agent'&&<p className="muted">Your account only has permission to submit/manage your own shared listings.</p>}<form className="form-grid"onSubmit={submit}>
     {isOwner?<><F label="Owner Name"><I required value={form.owner_name}onChange={e=>u('owner_name',e.target.value)}/></F><F label="Owner Phone"><I value={form.owner_phone}onChange={e=>u('owner_phone',e.target.value)}/></F><F label="Owner WhatsApp"><I value={form.owner_whatsapp}onChange={e=>u('owner_whatsapp',e.target.value)}/></F></>:<><F label="Agent Name"><I required value={form.agent_name}onChange={e=>u('agent_name',e.target.value)}/></F><F label="Agent Phone"><I value={form.agent_phone}onChange={e=>u('agent_phone',e.target.value)}/></F><F label="Agent WhatsApp"><I value={form.agent_whatsapp}onChange={e=>u('agent_whatsapp',e.target.value)}/></F><F label="Agency"><I value={form.agency}onChange={e=>u('agency',e.target.value)}/></F></>}
     <F label="Property Title / Name"><I required value={form.title}onChange={e=>u('title',e.target.value)}/></F>
     <F label="Listing Type"><S value={form.listing_type}onChange={e=>u('listing_type',e.target.value)}>{listingTypes.map(x=><option key={x}>{x}</option>)}</S></F>
@@ -266,10 +456,33 @@ function Contacts({data,crm}){const[form,setForm]=useState({name:'',phone:'',wha
 
 function ContactList({rows,crm}){const[editing,setEditing]=useState(null),[q,setQ]=useState(''),[type,setType]=useState('All'),[status,setStatus]=useState('All'),[market,setMarket]=useState('All');const counts=rows.reduce((a,c)=>{const k=cleanPhone(c.whatsapp||c.phone);if(k)a[k]=(a[k]||0)+1;return a},{});const filtered=rows.filter(x=>JSON.stringify(x).toLowerCase().includes(q.toLowerCase())&&(type==='All'||x.contact_type===type)&&(status==='All'||x.status===status)&&(market==='All'||(market==='Can Marketing'&&x.marketing_consent&&!x.opt_out)||(market==='Opt Out'&&x.opt_out)));return <C><div className="section-head"><div><h2>Contact Database / Marketing List</h2><p className="muted">Use Opt Out to exclude contacts from future marketing follow up.</p></div><div className="filters"><I placeholder="Search name, phone, area, tags..."value={q}onChange={e=>setQ(e.target.value)}/><S value={type}onChange={e=>setType(e.target.value)}><option>All</option>{contactTypes.map(x=><option key={x}>{x}</option>)}</S><S value={status}onChange={e=>setStatus(e.target.value)}><option>All</option>{contactStatuses.map(x=><option key={x}>{x}</option>)}</S><S value={market}onChange={e=>setMarket(e.target.value)}><option>All</option><option>Can Marketing</option><option>Opt Out</option></S></div></div><div className="cards">{filtered.map(x=>{const dup=counts[cleanPhone(x.whatsapp||x.phone)]>1;return <div className="record"key={x.id}><div className="record-head"><div><h3>{x.name}</h3><p>{x.contact_type} · {x.status} · {x.source||'-'}</p><small>{x.phone||'-'} · {x.email||'-'}</small></div><div className="badges"><Badge tone={x.opt_out?'red':x.marketing_consent?'green':'amber'}>{x.opt_out?'Opt Out':x.marketing_consent?'Marketing OK':'No Consent'}</Badge>{dup&&<Badge tone="red">Duplicate Phone</Badge>}</div></div><div className="mini-grid"><span><b>{x.interested_area||'-'}</b><small>Interested Area</small></span><span><b>{x.interested_property_type||'-'}</b><small>Property Type</small></span><span><b>{money(x.budget_min)} - {money(x.budget_max)}</b><small>Budget</small></span></div><p className="muted">Tags: {x.tags||'-'}</p><p className="muted">Next Follow Up: {x.next_follow_up_at?new Date(x.next_follow_up_at).toLocaleString():'-'}</p><p className="notes">{x.notes||'-'}</p><div className="row"><S value={x.status||'Active'}onChange={e=>crm.update('contact',x.id,{status:e.target.value})}>{contactStatuses.map(s=><option key={s}>{s}</option>)}</S><B variant={x.marketing_consent?'success':'secondary'}onClick={()=>crm.update('contact',x.id,{marketing_consent:!x.marketing_consent,consent_date:!x.marketing_consent?today():x.consent_date})}>{x.marketing_consent?'Consent Yes':'Set Consent'}</B><B variant={x.opt_out?'danger':'secondary'}onClick={()=>crm.update('contact',x.id,{opt_out:!x.opt_out,status:!x.opt_out?'Opt Out':x.status})}>{x.opt_out?'Opted Out':'Opt Out'}</B><a href={wa(x.whatsapp||x.phone,`Hi ${x.name}, I have some property updates that may interest you.`)}target="_blank"rel="noreferrer"><B variant="success"><MessageCircle size={16}/>WhatsApp</B></a><B variant="secondary"onClick={()=>setEditing(x)}><Pencil size={16}/>Edit</B><B variant="danger"onClick={()=>crm.remove('contact',x.id)}><Trash2 size={16}/>Delete</B></div></div>})}</div>{!filtered.length&&<p className="muted">No contacts found.</p>}{editing&&<EditRecord title="Edit Contact"kind="contact"row={editing}onClose={()=>setEditing(null)}onSave={vals=>crm.update('contact',editing.id,vals)}/>}</C>}
 
+
+function TeamCRM({data,crm,session}){
+  const canManage=canManageTeam(crm.role)
+  const[f,setF]=useState({name:'',email:'',phone:'',whatsapp:'',role:'Agent',status:'active'})
+  const u=(k,v)=>setF(p=>({...p,[k]:v}))
+  async function submit(e){
+    e.preventDefault()
+    if(!canManage)return alert('Only Owner / Manager can add team members.')
+    await crm.add('teamMember',{name:f.name,email:f.email,phone:f.phone,whatsapp:f.whatsapp,role:f.role,status:f.status})
+    setF({name:'',email:'',phone:'',whatsapp:'',role:'Agent',status:'active'})
+  }
+  const agentRows=data.teamMember||[]
+  const totalAssigned=id=>['owner','agent','project','request','contact'].reduce((sum,k)=>sum+(data[k]||[]).filter(x=>x.assigned_to===id||x.created_by===id).length,0)
+  return <div className="stack"><C><div className="section-head"><div><h2>Team Workspace</h2><p className="muted">Team: {crm.activeTeam?.name||'Default Team'} · Your role: {crm.role}</p></div><Badge tone={canManage?'green':'amber'}>{canManage?'Can manage team':'Limited permission'}</Badge></div>{!canManage&&<p className="notice">Only Owner / Manager can add or edit team members.</p>}{canManage&&<form className="form-grid"onSubmit={submit}><F label="Name"><I required value={f.name}onChange={e=>u('name',e.target.value)}/></F><F label="Email"><I required type="email"value={f.email}onChange={e=>u('email',e.target.value)}/></F><F label="Phone"><I value={f.phone}onChange={e=>u('phone',e.target.value)}/></F><F label="WhatsApp"><I value={f.whatsapp}onChange={e=>u('whatsapp',e.target.value)}/></F><F label="Role"><S value={f.role}onChange={e=>u('role',e.target.value)}>{teamRoles.map(x=><option key={x}>{x}</option>)}</S></F><F label="Status"><S value={f.status}onChange={e=>u('status',e.target.value)}><option>active</option><option>inactive</option></S></F><B><UserPlus size={16}/>Add Team Member</B></form>}</C><C><h2>Team Members</h2><div className="cards">{agentRows.map(x=><div className="record"key={x.id}><div className="record-head"><div><h3>{x.name||x.email}</h3><p>{x.email}</p><small>{x.phone||'-'} · {x.whatsapp||'-'}</small></div><div className="badges"><Badge tone={x.role==='Owner'?'blue':x.role==='Manager'?'purple':'slate'}>{x.role}</Badge><Badge tone={x.status==='active'?'green':'red'}>{x.status}</Badge></div></div><div className="mini-grid"><span><b>{totalAssigned(x.user_id)}</b><small>Assigned / Created</small></span><span><b>{roleLevels[x.role]||0}</b><small>Permission Level</small></span><span><b>{x.user_id?'Linked':'Pending'}</b><small>Account</small></span></div>{canManage&&<div className="row"><S value={x.role}onChange={e=>crm.update('teamMember',x.id,{role:e.target.value})}>{teamRoles.map(r=><option key={r}>{r}</option>)}</S><S value={x.status}onChange={e=>crm.update('teamMember',x.id,{status:e.target.value})}><option>active</option><option>inactive</option></S><B variant="danger"onClick={()=>crm.remove('teamMember',x.id)}><Trash2 size={16}/>Remove</B></div>}</div>)}</div></C></div>
+}
+
+function AuditLog({rows=[]}){
+  const[q,setQ]=useState('')
+  const filtered=rows.filter(x=>JSON.stringify(x).toLowerCase().includes(q.toLowerCase()))
+  return <C><div className="section-head"><div><h2>Audit Log</h2><p className="muted">Track who created, edited, deleted, or changed team records.</p></div><I placeholder="Search audit log..."value={q}onChange={e=>setQ(e.target.value)}/></div><div className="list">{filtered.map(x=><div className="item"key={x.id}><div><strong>{x.action} · {x.table_name}</strong><p>{new Date(x.created_at).toLocaleString()}</p><small>User: {x.user_id||'-'} · Record: {x.record_id||'-'}</small><pre className="audit-json">{JSON.stringify(x.details||{},null,2)}</pre></div></div>)}</div>{!filtered.length&&<p className="muted">No audit logs yet.</p>}</C>
+}
+
+
 function Matches({matches,crm,setActive}){const[min,setMin]=useState(50);const visible=matches.filter(x=>x.score>=min);async function reminder(m){await crm.add('rem',{title:`Follow up match: ${m.request.client_name}`,client_name:m.request.client_name,related_name:m.listing.title,reminder_type:'Client Follow Up',remind_at:new Date(Date.now()+86400000).toISOString(),status:'Pending',notes:`Match ${m.score}%. ${m.reasons.join(', ')}`,notification_sent:false});setActive('reminders')}async function appt(m){await crm.add('appt',{client_name:m.request.client_name,property_title:m.listing.title,appointment_date:today(),appointment_time:'10:00',type:'Viewing',status:'Scheduled',location:m.listing.area||'',notes:`Created from buyer match ${m.score}%.`});setActive('calendar')}return <div className="stack"><C><div className="section-head"><h2>Buyer Matching</h2><F label="Minimum Score"><I type="number"value={min}onChange={e=>setMin(n(e.target.value))}/></F></div></C><div className="cards">{visible.map(m=><C key={m.listing.id+m.request.id}><div className="record-head"><div><h3>{m.score}% Match</h3><p>{m.reasons.join(' · ')}</p></div><Badge tone={m.listing.source==='agent'?'purple':'blue'}>{m.listing.source_label}</Badge></div><div className="grid two compact"><div className="panel"><strong>Client</strong><p>{m.request.client_name}</p><small>{m.request.preferred_area} · {money(m.request.max_budget)}</small></div><div className="panel"><strong>Listing</strong><p>{m.listing.title}</p><small>{m.listing.area} · {money(m.listing.price)}</small></div></div><div className="row"><a href={wa(m.request.client_whatsapp||m.request.client_phone,`Hi ${m.request.client_name}, I found a property: ${m.listing.title}, ${money(m.listing.price)}.`)}target="_blank"rel="noreferrer"><B variant="success"><MessageCircle size={16}/>WhatsApp Client</B></a><B variant="secondary"onClick={()=>reminder(m)}><Bell size={16}/>Reminder</B><B variant="secondary"onClick={()=>appt(m)}><CalendarDays size={16}/>Appointment</B></div></C>)}</div></div>}
 
-function Excel({data,matches}){function exportX(){const wb=XLSX.utils.book_new();[['Owner Listings',data.owner],['Agent Listings',data.agent],['New Project Listings',data.project],['Buyer Requests',data.request],['Contacts',data.contact],['Appointments',data.appt],['Reminders',data.rem],['Co Agents',data.member],['Matches',matches.map(m=>({score:m.score,source:m.listing.source_label,client:m.request.client_name,listing:m.listing.title,area:m.listing.area,price:m.listing.price,reasons:m.reasons.join(', ')}))]].forEach(([name,rows])=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{empty:'No data'}]),name.slice(0,31)));XLSX.writeFile(wb,`property-crm-export-${today()}.xlsx`)}return <C><h2>Excel Export</h2><p className="muted">Export all CRM data into one Excel workbook.</p><B onClick={exportX}><Download size={16}/>Export Excel</B></C>}
+function Excel({data,matches}){function exportX(){const wb=XLSX.utils.book_new();[['Owner Listings',data.owner],['Agent Listings',data.agent],['New Project Listings',data.project],['Buyer Requests',data.request],['Contacts',data.contact],['Team Members',data.teamMember],['Audit Log',data.audit],['Appointments',data.appt],['Reminders',data.rem],['Co Agents',data.member],['Matches',matches.map(m=>({score:m.score,source:m.listing.source_label,client:m.request.client_name,listing:m.listing.title,area:m.listing.area,price:m.listing.price,reasons:m.reasons.join(', ')}))]].forEach(([name,rows])=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{empty:'No data'}]),name.slice(0,31)));XLSX.writeFile(wb,`property-crm-export-${today()}.xlsx`)}return <C><h2>Excel Export</h2><p className="muted">Export all CRM data into one Excel workbook.</p><B onClick={exportX}><Download size={16}/>Export Excel</B></C>}
 function Install(){return <div className="grid two"><C><h2>iPhone Install</h2><ol><li>Open Vercel URL in Safari.</li><li>Tap Share → Add to Home Screen.</li><li>Open from Home Screen.</li><li>Go to Reminders + Push → Enable Push.</li></ol></C><C><h2>Android / Computer</h2><ol><li>Open URL in Chrome or Edge.</li><li>Tap Install App / Add to Home Screen.</li><li>Login with same account to sync.</li></ol></C></div>}
 
 export default function App(){const[session,setSession]=useState(null),[ready,setReady]=useState(!isSupabaseConfigured),[active,setActive]=useState(new URLSearchParams(location.search).get('tab')||'dashboard');useEffect(()=>{if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(console.warn)},[]);useEffect(()=>{if(!isSupabaseConfigured)return;supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true)});const{data:l}=supabase.auth.onAuthStateChange((_e,s)=>{setSession(s);setReady(true)});return()=>l.subscription.unsubscribe()},[]);if(!ready)return <div className="loading">Loading...</div>;if(isSupabaseConfigured&&!session)return <Auth/>;return <Shell session={session}active={active}setActive={setActive}/>}
-function Shell({session,active,setActive}){const crm=useData(session),{data}=crm;useEffect(()=>{if(crm.role==='co_agent'&&!['agents','install'].includes(active))setActive('agents')},[crm.role,active]);async function saveContact(row){const key=cleanPhone(row.whatsapp||row.phone);const existing=key?data.contact.find(c=>cleanPhone(c.whatsapp||c.phone)===key):null;if(existing)await crm.update('contact',existing.id,{...row,notes:[existing.notes,row.notes].filter(Boolean).join('\n---\n')});else await crm.add('contact',row);setActive('contacts')}async function saveListingContact(x,kind){const isOwner=kind==='owner';await saveContact({name:isOwner?x.owner_name:x.agent_name,phone:isOwner?x.owner_phone:x.agent_phone,whatsapp:isOwner?(x.owner_whatsapp||x.owner_phone):(x.agent_whatsapp||x.agent_phone),contact_type:isOwner?'Owner':'Agent',source:isOwner?'Owner Listing':'Agent Listing',status:'Active',marketing_consent:false,opt_out:false,interested_area:x.area,interested_property_type:x.property_type,property_category:x.property_category,budget_min:0,budget_max:x.price,tags:isOwner?'Owner Listing':'Agent Listing',related_owner_listing_id:isOwner?x.id:null,related_agent_listing_id:!isOwner?x.id:null,notes:`Saved from ${isOwner?'owner':'agent'} listing: ${x.title}. Built-up: ${areaLabel(x.built_up,x.built_up_unit)}. Land size: ${areaLabel(x.land_size,x.land_size_unit)}. ${x.notes||''}`})}async function archiveBuyer(x){await saveContact({name:x.client_name,phone:x.client_phone,whatsapp:x.client_whatsapp||x.client_phone,email:x.client_email||'',contact_type:'Buyer',source:x.source_channel||'Buyer Request',status:'Not Buying Now',marketing_consent:false,opt_out:false,interested_area:x.preferred_area,interested_property_type:x.property_type,property_category:x.property_category,budget_min:x.min_budget,budget_max:x.max_budget,tags:'Archived Buyer Request',related_request_id:x.id,notes:`Archived from buyer request. Original status: ${x.status}. ${x.notes||''}`});await crm.update('request',x.id,{status:'Lost',last_contacted_at:new Date().toISOString()})}const matches=useMemo(()=>{const owners=data.owner.filter(x=>x.status==='Active').map(x=>({...x,source:'owner',source_label:'Owner Listing'}));const agents=data.agent.filter(x=>x.status==='Active').map(x=>({...x,source:'agent',source_label:x.shared_to_user_id?'Agent Sharing Group':'Other Agent Listing'}));const projects=data.project.filter(x=>x.status==='Active').map(x=>({...x,listing_type:'Sell',price:x.price_from,source:'project',source_label:'New Project Listing'}));let out=[];for(const l of[...owners,...agents,...projects])for(const r of data.request.filter(x=>!['Closed','Lost'].includes(x.status))){const sc=score(l,r);if(sc.score>0)out.push({listing:l,request:r,score:sc.score,reasons:sc.reasons})}return out.sort((a,b)=>b.score-a.score)},[data.owner,data.agent,data.project,data.request]);return <div><Header active={active}setActive={setActive}session={session}crm={crm}/><main className="container">{crm.loading&&<C><p>Syncing cloud database...</p></C>}{active==='dashboard'&&crm.role!=='co_agent'&&<Dashboard data={data}matches={matches}/>} {active==='pipeline'&&crm.role!=='co_agent'&&<Pipeline rows={data.request}onStatus={(id,status)=>crm.update('request',id,{status})}/>} {active==='calendar'&&crm.role!=='co_agent'&&<CalendarPage data={data}crm={crm}/>} {active==='reminders'&&crm.role!=='co_agent'&&<Reminders data={data}crm={crm}session={session}/>} {active==='owners'&&crm.role!=='co_agent'&&<div className="stack"><ListingForm kind="owner"onAdd={r=>crm.add('owner',r)}/><ListingList rows={data.owner}kind="owner"onDelete={id=>crm.remove('owner',id)}onSaveContact={saveListingContact}onEdit={(id,vals)=>crm.update('owner',id,vals)}/></div>} {active==='projects'&&crm.role!=='co_agent'&&<div className="stack"><ProjectForm onAdd={r=>crm.add('project',r)}/><ProjectList rows={data.project}onDelete={id=>crm.remove('project',id)}onEdit={(id,vals)=>crm.update('project',id,vals)}/></div>} {active==='agents'&&<Agents data={data}crm={crm}/>} {active==='requests'&&crm.role!=='co_agent'&&<div className="stack"><RequestForm onAdd={r=>crm.add('request',r)}/><RequestList rows={data.request}onDelete={id=>crm.remove('request',id)}onStatus={(id,status)=>crm.update('request',id,{status})}onArchive={archiveBuyer}onEdit={(id,vals)=>crm.update('request',id,vals)}/></div>} {active==='contacts'&&crm.role!=='co_agent'&&<Contacts data={data}crm={crm}/>} {active==='matches'&&crm.role!=='co_agent'&&<Matches matches={matches}crm={crm}setActive={setActive}/>} {active==='export'&&crm.role!=='co_agent'&&<Excel data={data}matches={matches}/>} {active==='install'&&<Install/>}</main></div>}
+function Shell({session,active,setActive}){const crm=useData(session),{data}=crm;useEffect(()=>{if(crm.role==='Co-Agent'&&!['agents','install'].includes(active))setActive('agents')},[crm.role,active]);async function saveContact(row){const key=cleanPhone(row.whatsapp||row.phone);const existing=key?data.contact.find(c=>cleanPhone(c.whatsapp||c.phone)===key):null;if(existing)await crm.update('contact',existing.id,{...row,notes:[existing.notes,row.notes].filter(Boolean).join('\n---\n')});else await crm.add('contact',row);setActive('contacts')}async function saveListingContact(x,kind){const isOwner=kind==='owner';await saveContact({name:isOwner?x.owner_name:x.agent_name,phone:isOwner?x.owner_phone:x.agent_phone,whatsapp:isOwner?(x.owner_whatsapp||x.owner_phone):(x.agent_whatsapp||x.agent_phone),contact_type:isOwner?'Owner':'Agent',source:isOwner?'Owner Listing':'Agent Listing',status:'Active',marketing_consent:false,opt_out:false,interested_area:x.area,interested_property_type:x.property_type,property_category:x.property_category,budget_min:0,budget_max:x.price,tags:isOwner?'Owner Listing':'Agent Listing',related_owner_listing_id:isOwner?x.id:null,related_agent_listing_id:!isOwner?x.id:null,notes:`Saved from ${isOwner?'owner':'agent'} listing: ${x.title}. Built-up: ${areaLabel(x.built_up,x.built_up_unit)}. Land size: ${areaLabel(x.land_size,x.land_size_unit)}. ${x.notes||''}`})}async function archiveBuyer(x){await saveContact({name:x.client_name,phone:x.client_phone,whatsapp:x.client_whatsapp||x.client_phone,email:x.client_email||'',contact_type:'Buyer',source:x.source_channel||'Buyer Request',status:'Not Buying Now',marketing_consent:false,opt_out:false,interested_area:x.preferred_area,interested_property_type:x.property_type,property_category:x.property_category,budget_min:x.min_budget,budget_max:x.max_budget,tags:'Archived Buyer Request',related_request_id:x.id,notes:`Archived from buyer request. Original status: ${x.status}. ${x.notes||''}`});await crm.update('request',x.id,{status:'Lost',last_contacted_at:new Date().toISOString()})}const matches=useMemo(()=>{const owners=data.owner.filter(x=>x.status==='Active').map(x=>({...x,source:'owner',source_label:'Owner Listing'}));const agents=data.agent.filter(x=>x.status==='Active').map(x=>({...x,source:'agent',source_label:x.shared_to_user_id?'Agent Sharing Group':'Other Agent Listing'}));const projects=data.project.filter(x=>x.status==='Active').map(x=>({...x,listing_type:'Sell',price:x.price_from,source:'project',source_label:'New Project Listing'}));let out=[];for(const l of[...owners,...agents,...projects])for(const r of data.request.filter(x=>!['Closed','Lost'].includes(x.status))){const sc=score(l,r);if(sc.score>0)out.push({listing:l,request:r,score:sc.score,reasons:sc.reasons})}return out.sort((a,b)=>b.score-a.score)},[data.owner,data.agent,data.project,data.request]);return <div><Header active={active}setActive={setActive}session={session}crm={crm}/><main className="container">{crm.loading&&<C><p>Syncing cloud database...</p></C>}{active==='dashboard'&&crm.role!=='co_agent'&&<Dashboard data={data}matches={matches}/>} {active==='pipeline'&&crm.role!=='co_agent'&&<Pipeline rows={data.request}onStatus={(id,status)=>crm.update('request',id,{status})}/>} {active==='calendar'&&crm.role!=='co_agent'&&<CalendarPage data={data}crm={crm}/>} {active==='reminders'&&crm.role!=='co_agent'&&<Reminders data={data}crm={crm}session={session}/>} {active==='owners'&&crm.role!=='co_agent'&&<div className="stack"><ListingForm kind="owner"onAdd={r=>crm.add('owner',r)}/><ListingList rows={data.owner}kind="owner"onDelete={id=>crm.remove('owner',id)}onSaveContact={saveListingContact}onEdit={(id,vals)=>crm.update('owner',id,vals)}/></div>} {active==='projects'&&crm.role!=='co_agent'&&<div className="stack"><ProjectForm onAdd={r=>crm.add('project',r)}/><ProjectList rows={data.project}onDelete={id=>crm.remove('project',id)}onEdit={(id,vals)=>crm.update('project',id,vals)}/></div>} {active==='agents'&&<Agents data={data}crm={crm}/>} {active==='requests'&&crm.role!=='co_agent'&&<div className="stack"><RequestForm onAdd={r=>crm.add('request',r)}/><RequestList rows={data.request}onDelete={id=>crm.remove('request',id)}onStatus={(id,status)=>crm.update('request',id,{status})}onArchive={archiveBuyer}onEdit={(id,vals)=>crm.update('request',id,vals)}/></div>} {active==='contacts'&&crm.role!=='co_agent'&&<Contacts data={data}crm={crm}/>} {active==='matches'&&crm.role!=='co_agent'&&<Matches matches={matches}crm={crm}setActive={setActive}/>} {active==='export'&&crm.role!=='co_agent'&&<Excel data={data}matches={matches}/>} {active==='install'&&<Install/>}</main></div>}

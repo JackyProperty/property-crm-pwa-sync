@@ -123,3 +123,36 @@ Run this migration in Supabase SQL Editor before using the new version.
 - Fixed Owner / Agent Listing save when Available is set to Immediately.
 - Empty Available Date now saves as NULL instead of an empty string.
 - Save Listing now shows success/error message instead of appearing to do nothing.
+
+
+## V8 Team CRM Upgrade
+
+This package adds:
+
+- Team Workspace
+- Team Members
+- Role Permission:
+  - Owner
+  - Manager
+  - Senior Agent
+  - Agent
+  - Co-Agent
+  - Admin Staff
+- Team fields for listings, buyer requests, contacts, appointments and reminders
+- Visibility field:
+  - Private
+  - Team
+  - Company
+  - Selected Agents
+- Created By / Assigned To support
+- Audit Log table
+- Audit logging for create / update / delete actions
+- Safe backfill of existing V7 data into a Default Team
+
+Database migration required:
+
+```text
+supabase/migration_v8_team_crm.sql
+```
+
+Run this after the V7 migration. It does not drop or delete existing data.

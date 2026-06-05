@@ -28,3 +28,15 @@
 .chip-wrap,.segment-wrap{display:flex;flex-wrap:wrap;gap:8px}
 .chip,.segment{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:8px 12px;font-weight:700;cursor:pointer}
 .chip.active,.segment.active{background:#0f172a;color:#fff;border-color:#0f172a}
+
+
+.audit-json {
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 12px;
+}
