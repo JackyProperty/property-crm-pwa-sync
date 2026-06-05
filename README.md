@@ -117,3 +117,9 @@ Run this migration in Supabase SQL Editor before using the new version.
 - Area units and dimension units
 - Condition, electricity and lift fields
 - Migration file: supabase/migration_v7_propertyguru.sql
+
+
+## V7.1 Save Fix
+- Fixed Owner / Agent Listing save when Available is set to Immediately.
+- Empty Available Date now saves as NULL instead of an empty string.
+- Save Listing now shows success/error message instead of appearing to do nothing.
