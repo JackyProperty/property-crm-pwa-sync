@@ -182,3 +182,20 @@ This version fixes Available Date behavior in the step-by-step listing wizard.
 - When Available = Immediately, Available Date is cleared and saved as NULL.
 - When Available = Choose a date, the selected date is saved.
 - No new Supabase migration is required.
+
+
+## V8.3 Privacy + Export Update
+
+Changes:
+- Removed Owner Name / Owner Phone / Owner WhatsApp from Owner Listing input.
+- Removed Client Phone / Client WhatsApp from Buyer Request input.
+- Removed Client Pipeline tab from the app menu.
+- Excel Export now respects role permission:
+  - Agent / Co-Agent export only their own listing and buyer request data.
+  - Owner / Manager / Senior Agent / Admin Staff export team-visible data.
+- Added safe migration:
+  - `supabase/migration_v8_3_privacy.sql`
+- Added optional clear-data SQL:
+  - `supabase/optional_clear_database_v8_3.sql`
+
+Do not run `optional_clear_database_v8_3.sql` unless you are sure you want to delete CRM records.

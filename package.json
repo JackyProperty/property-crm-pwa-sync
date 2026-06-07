@@ -1,7 +1,7 @@
 {
-  "name": "property-crm-pwa-route-a-v8-2-null-date-fix",
+  "name": "property-crm-pwa-route-a-v8-3-privacy-export",
   "private": true,
-  "version": "8.2.0",
+  "version": "8.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
