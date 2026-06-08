@@ -210,3 +210,17 @@ Changes:
 - Language choice is saved in browser localStorage.
 - Main navigation, common buttons, form labels and major screens are bilingual.
 - No new Supabase migration is required.
+
+
+## V8.5 Agent Invite Links
+
+Adds shareable invite links for agents:
+- Owner / Manager can create an invite link in Agent Sharing Group.
+- Agent opens the link, creates account or logs in.
+- App accepts the invite and joins the agent into the team automatically.
+- Optional email lock: if an email is entered, only that email can accept the link.
+
+Migration required:
+```text
+supabase/migration_v8_5_agent_invite_links.sql
+```
