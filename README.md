@@ -199,3 +199,14 @@ Changes:
   - `supabase/optional_clear_database_v8_3.sql`
 
 Do not run `optional_clear_database_v8_3.sql` unless you are sure you want to delete CRM records.
+
+
+## V8.4 Branding + Language Selector
+
+Changes:
+- App name changed to Lists Manager.
+- Browser title and PWA manifest name changed to Lists Manager.
+- Added language selector: English / 中文.
+- Language choice is saved in browser localStorage.
+- Main navigation, common buttons, form labels and major screens are bilingual.
+- No new Supabase migration is required.
