@@ -1,7 +1,7 @@
 {
-  "name": "lists-manager-v8-5-agent-invite-link",
+  "name": "lists-manager-v8-6-full-chinese-dropdowns",
   "private": true,
-  "version": "8.5.0",
+  "version": "8.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -224,3 +224,20 @@ Migration required:
 ```text
 supabase/migration_v8_5_agent_invite_links.sql
 ```
+
+
+## V8.6 Full Chinese Dropdowns
+
+This version improves English / Chinese language display for dropdowns and selectable chips.
+
+Fixed:
+- Property category / type / subtype / unit type Chinese display
+- Tenure / title type / direction / lease term Chinese display
+- Area unit Chinese display
+- Condition / electricity phase Chinese display
+- Property facilities Chinese display
+- Unit features Chinese display
+- Contact / status / role / visibility options Chinese display
+
+Database values remain in English for compatibility. Only the visible UI label changes.
+No Supabase migration is required.
