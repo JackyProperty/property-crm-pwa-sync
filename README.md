@@ -263,3 +263,13 @@ Run this SQL only if invite creation is blocked by RLS.
 - Generate Invite Link now inserts directly into team_invites and gives clearer error messages.
 - If RLS still blocks invite creation, run `supabase/migration_v8_8_invite_owner_policy_fix.sql`.
 - No data is deleted.
+
+
+## V8.9 Invite Session Fix
+
+Fixes:
+- Generate Invite Link error: `session is not defined`.
+- Passes the logged-in session into the Invite Link component.
+- Adds a clearer message if login session is not ready.
+
+No Supabase migration is required if you already ran the V8.5 invite migration and V8.8 invite owner policy SQL.

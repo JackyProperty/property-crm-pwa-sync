@@ -1,7 +1,7 @@
 {
-  "name": "lists-manager-v8-8-invite-stable-fix",
+  "name": "lists-manager-v8-9-invite-session-fix",
   "private": true,
-  "version": "8.8.0",
+  "version": "8.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
