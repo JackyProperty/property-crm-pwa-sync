@@ -241,3 +241,18 @@ Fixed:
 
 Database values remain in English for compatibility. Only the visible UI label changes.
 No Supabase migration is required.
+
+
+## V8.7 Invite Link Error Fix
+
+This version improves Generate Invite Link behavior:
+
+- Shows a clear alert if the invite table migration is missing.
+- Shows a clear alert if Supabase RLS blocks invite creation.
+- Auto-fills invite name as "Agent Invite" if left blank.
+- Shows success message and copies link automatically when successful.
+
+Optional SQL:
+- `supabase/migration_v8_7_invite_rls_fix.sql`
+
+Run this SQL only if invite creation is blocked by RLS.

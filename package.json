@@ -1,7 +1,7 @@
 {
-  "name": "lists-manager-v8-6-full-chinese-dropdowns",
+  "name": "lists-manager-v8-7-invite-error-fix",
   "private": true,
-  "version": "8.6.0",
+  "version": "8.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
