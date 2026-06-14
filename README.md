@@ -256,3 +256,10 @@ Optional SQL:
 - `supabase/migration_v8_7_invite_rls_fix.sql`
 
 Run this SQL only if invite creation is blocked by RLS.
+
+
+## V8.8 Invite Stable Fix
+
+- Generate Invite Link now inserts directly into team_invites and gives clearer error messages.
+- If RLS still blocks invite creation, run `supabase/migration_v8_8_invite_owner_policy_fix.sql`.
+- No data is deleted.
