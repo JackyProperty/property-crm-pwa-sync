@@ -62,7 +62,7 @@ let currentLang=typeof localStorage!=='undefined'?(localStorage.getItem(LANG_KEY
 const zh={
   'Login':'登录','Create Account':'创建账号','Email':'电邮','Password':'密码','Minimum 6 characters':'最少 6 个字符','Processing...':'处理中...','Refresh':'刷新','Logout':'登出','Cloud Sync On':'云端同步开启','Local Demo Mode':'本地示范模式','Owner':'拥有者','Manager':'经理','Senior Agent':'资深经纪','Agent':'经纪','Co-Agent':'合作经纪','Admin Staff':'行政人员',
   'Report Dashboard':'报表看板','Team CRM':'团队 CRM','Audit Log':'操作记录','Appointment Calendar':'预约日历','Reminders + Push':'提醒 + 推送','Owner Listings':'房源列表','New Project Listing':'新项目房源','Agent Sharing Group':'经纪共享组','Buyer Requests':'买家需求','Contact Database':'联系人资料库','Buyer Matching':'买家匹配','Excel Export':'Excel 导出','Install':'安装','Submit Listing':'提交房源',
-  'Team CRM + Invite Session Fix':'团队 CRM + 隐私导出','Team CRM + Wizard + Null Date Fix':'团队 CRM + 分步表单','Co-agent listing submission only':'合作经纪只可提交房源','Syncing cloud database...':'正在同步云端资料...','Loading...':'载入中...',
+  'Team CRM + Invite Accept Fix':'团队 CRM + 隐私导出','Team CRM + Wizard + Null Date Fix':'团队 CRM + 分步表单','Co-agent listing submission only':'合作经纪只可提交房源','Syncing cloud database...':'正在同步云端资料...','Loading...':'载入中...',
   'Listing Category':'房源分类','Listing Type':'交易类型','Available':'可用时间','Available Date':'可用日期','Lease Term':'租期','Property Type':'产业类型','Property Sub Type':'产业子类型','Property Unit Type':'单位类型','Property Title / Name':'房源标题 / 名称','Area':'地区','City':'城市','State':'州属','Block':'座','Floor':'楼层','Unit / House No.':'单位 / 门牌号','Hide Block / Floor / Unit':'隐藏座 / 楼层 / 单位号','Price / Rental':'售价 / 租金','Lowest':'最低价','Bedrooms':'房间','Bathrooms':'厕所','Built Up':'建筑面积','Built Up Unit':'建筑面积单位','Built Up Width':'建筑宽度','Built Up Length':'建筑长度','Built Up Dimension Unit':'建筑尺寸单位','Land Size':'土地面积','Land Size Unit':'土地面积单位','Land Width':'土地宽度','Land Length':'土地长度','Land Dimension Unit':'土地尺寸单位','Parking Spots':'停车位','Tenure':'地契','Title Type':'产权类型','Lease Year Remaining':'剩余租赁年限','Bumi Lot':'土著单位','Direction':'朝向','Condition':'状态','Furnishing':'家具','Electricity Phase':'电相','Electricity Supply (amp)':'电供（amp）','Total Cargo Lifts':'货梯数量','Total Passenger Lifts':'客梯数量','Maximum Lift Capacity (kg)':'最大电梯承重（kg）','Property Facilities':'产业设施','Unit Features':'单位特点','Notes':'备注','Visibility':'可见范围','Assigned To':'分配给','Status':'状态','Preview':'预览','Contact':'联系人','Facilities':'设施','Title & Condition':'产权与状态','Price & Size':'价格与面积','Location':'地点','Type':'类型','Category':'分类','Back':'返回','Next':'下一步','Save Listing':'储存房源','Save Request':'储存需求','Export Excel':'导出 Excel','Export CSV':'导出 CSV',
   'Residential':'住宅','Commercial':'商业','Industrial':'工业','Agricultural':'农业','Sell':'出售','Rent':'出租','Immediately':'立即','Choose a date':'选择日期','Select option':'选择选项','Yes':'是','No':'否','Private':'私人','Team':'团队','Company':'公司','Selected Agents':'指定经纪',
   'Team Workspace':'团队工作区','Team Members':'团队成员','Can manage team':'可管理团队','Limited permission':'权限有限','Add Team Member':'添加团队成员','Name':'姓名','Phone':'电话','WhatsApp':'WhatsApp','Role':'角色','Search audit log...':'搜索操作记录...','No audit logs yet.':'暂无操作记录。','No data yet.':'暂无资料。','No matches yet.':'暂无匹配。',
@@ -279,6 +279,13 @@ const zhOptions={
 }
 Object.assign(zh, zhOptions)
 
+Object.assign(zh, {
+  "Invite accept failed. Please ask the team owner to generate a new invite link.": "邀请接受失败。请要求团队管理员重新生成邀请链接。",
+  "This invite link is invalid or expired.": "这个邀请链接无效或已过期。",
+  "This invite link is for a different email address.": "这个邀请链接绑定了不同的电邮地址。",
+  "Team CRM + Invite Accept Fix": "团队 CRM + 邀请加入修复"
+})
+
 Object.assign(zh, {'Login session is not ready. Please refresh and login again.':'登录状态还没准备好。请刷新并重新登录。'})
 
 const tr=v=>currentLang==='zh'?(zh[v]||v):v
@@ -314,7 +321,19 @@ function Segmented({options=[],value,onChange}){return <div className="segment-w
 const canManageTeam=role=>['Owner','Manager'].includes(role)
 const canViewAll=role=>['Owner','Manager','Senior Agent','Admin Staff'].includes(role)
 const ownRows=(rows=[],userId)=>rows.filter(x=>x.assigned_to===userId||x.created_by===userId||x.user_id===userId)
-const inviteTokenFromUrl=()=>new URLSearchParams(location.search).get('invite')
+const INVITE_KEY='lists-manager-pending-invite'
+const inviteTokenFromUrl=()=>{
+  const qs=new URLSearchParams(location.search).get('invite')
+  if(qs){
+    try{localStorage.setItem(INVITE_KEY,qs)}catch{}
+    return qs
+  }
+  try{return localStorage.getItem(INVITE_KEY)}catch{return null}
+}
+const clearInviteToken=()=>{
+  try{localStorage.removeItem(INVITE_KEY)}catch{}
+  if(location.search.includes('invite='))window.history.replaceState({},document.title,location.pathname)
+}
 const inviteUrl=token=>`${location.origin}${location.pathname}?invite=${encodeURIComponent(token)}`
 
 
@@ -377,7 +396,7 @@ function Auth({lang,setLang}){
     }
   }
 
-  return <div className="auth-page"><C className="auth-card"><div className="brand center"><div className="brand-icon"><Building2/></div><div><h1>{APP_NAME}</h1><p>{tr('Team CRM + Invite Session Fix')}</p></div></div><div className="auth-lang"><LanguageSelect lang={lang} setLang={setLang}/></div><div className="auth-tabs"><button type="button" className={mode==='login'?'active':''}onClick={()=>{setMode('login');setMsg('')}}>{tr('Login')}</button><button type="button" className={mode==='signup'?'active':''}onClick={()=>{setMode('signup');setMsg('')}}>{tr('Create Account')}</button></div><form onSubmit={submit}className="stack"><F label="Email"><I type="email"required value={email}onChange={e=>setEmail(e.target.value)}placeholder="you@email.com"/></F><F label="Password"><I type="password"required minLength={6}value={password}onChange={e=>setPassword(e.target.value)}placeholder={tr('Minimum 6 characters')}/></F><B type="submit" disabled={busy}className="full">{busy?tr('Processing...'):mode==='login'?tr('Login'):tr('Create Account')}</B>{msg&&<p className="notice">{msg}</p>}</form></C></div>
+  return <div className="auth-page"><C className="auth-card"><div className="brand center"><div className="brand-icon"><Building2/></div><div><h1>{APP_NAME}</h1><p>{tr('Team CRM + Invite Accept Fix')}</p></div></div><div className="auth-lang"><LanguageSelect lang={lang} setLang={setLang}/></div><div className="auth-tabs"><button type="button" className={mode==='login'?'active':''}onClick={()=>{setMode('login');setMsg('')}}>{tr('Login')}</button><button type="button" className={mode==='signup'?'active':''}onClick={()=>{setMode('signup');setMsg('')}}>{tr('Create Account')}</button></div><form onSubmit={submit}className="stack"><F label="Email"><I type="email"required value={email}onChange={e=>setEmail(e.target.value)}placeholder="you@email.com"/></F><F label="Password"><I type="password"required minLength={6}value={password}onChange={e=>setPassword(e.target.value)}placeholder={tr('Minimum 6 characters')}/></F><B type="submit" disabled={busy}className="full">{busy?tr('Processing...'):mode==='login'?tr('Login'):tr('Create Account')}</B>{msg&&<p className="notice">{msg}</p>}</form></C></div>
 }
 
 
@@ -406,43 +425,46 @@ function useData(session){
   }
 
 
+  
   async function acceptInviteIfAny(email){
     const token=inviteTokenFromUrl()
     if(!token)return null
-    const{data:inv,error:invErr}=await supabase
-      .from(T.teamInvite)
+
+    const{data:accepted,error:acceptErr}=await supabase.rpc('accept_team_invite',{invite_token:token})
+    if(acceptErr)throw acceptErr
+
+    const row=Array.isArray(accepted)?accepted[0]:accepted
+    if(!row?.member_id)throw new Error('Invite accept failed. Please ask the team owner to generate a new invite link.')
+
+    const{data:m,error:mErr}=await supabase
+      .from(T.teamMember)
       .select('*, teams(*)')
-      .eq('token',token)
-      .eq('status','active')
+      .eq('id',row.member_id)
       .maybeSingle()
-    if(invErr)throw invErr
-    if(!inv)throw new Error('This invite link is invalid or expired.')
-    if(inv.expires_at&&new Date(inv.expires_at)<new Date())throw new Error('This invite link is invalid or expired.')
-    if(inv.email&&String(inv.email).toLowerCase()!==email)throw new Error('This invite link is for a different email address.')
-    const memberRow={
-      team_id:inv.team_id,
+    if(mErr)throw mErr
+
+    const member=m||{
+      id:row.member_id,
+      team_id:row.team_id,
       user_id:session.user.id,
-      email,
-      name:inv.name||session.user.user_metadata?.name||email,
-      phone:inv.phone||'',
-      whatsapp:inv.whatsapp||'',
-      role:inv.role||'Co-Agent',
-      status:'active',
-      invite_token:token
+      email:row.email||email,
+      name:row.name||email,
+      role:row.role||'Co-Agent',
+      status:row.status||'active',
+      teams:null
     }
-    let m=null
-    const{data:inserted,error:insertErr}=await supabase.from(T.teamMember).insert(memberRow).select('*, teams(*)').single()
-    if(insertErr){
-      const{data:existing,error:existErr}=await supabase.from(T.teamMember).select('*, teams(*)').eq('team_id',inv.team_id).eq('user_id',session.user.id).maybeSingle()
-      if(existErr||!existing)throw insertErr
-      m=existing
-    }else m=inserted
-    await supabase.from(T.teamInvite).update({status:'accepted',accepted_by:session.user.id,accepted_at:new Date().toISOString()}).eq('id',inv.id).catch(()=>{})
-    window.history.replaceState({},document.title,location.pathname)
-    setRole(m.role||'Co-Agent')
-    setMembership(m)
-    setActiveTeam(m.teams||inv.teams||null)
-    return{role:m.role||'Co-Agent',membership:m,team:m.teams||inv.teams||null}
+
+    let team=member.teams||null
+    if(!team&&row.team_id){
+      const{data:t}=await supabase.from(T.team).select('*').eq('id',row.team_id).maybeSingle()
+      team=t||null
+    }
+
+    clearInviteToken()
+    setRole(member.role||row.role||'Co-Agent')
+    setMembership(member)
+    setActiveTeam(team)
+    return{role:member.role||row.role||'Co-Agent',membership:member,team}
   }
 
   async function ensureTeam(){
@@ -457,26 +479,28 @@ function useData(session){
       .select('*, teams(*)')
       .eq('user_id',session.user.id)
       .eq('status','active')
-      .limit(1)
     if(tmErr)console.warn(tmErr)
-    if(tm?.length){
-      const m=tm[0]
-      setRole(m.role||'Agent')
-      setMembership(m)
-      setActiveTeam(m.teams||null)
-      return{role:m.role||'Agent',membership:m,team:m.teams||null}
-    }
 
     const{data:byEmail,error:emailErr}=await supabase
       .from(T.teamMember)
       .select('*, teams(*)')
       .ilike('email',email)
       .eq('status','active')
-      .limit(1)
     if(emailErr)console.warn(emailErr)
-    if(byEmail?.length){
-      const m=byEmail[0]
-      await supabase.from(T.teamMember).update({user_id:session.user.id}).eq('id',m.id)
+
+    const memberships=[...(tm||[]),...(byEmail||[])]
+      .filter((x,i,arr)=>x&&arr.findIndex(y=>y.id===x.id)===i)
+
+    if(memberships.length){
+      memberships.sort((a,b)=>{
+        const aInv=a.invite_token?1:0,bInv=b.invite_token?1:0
+        if(aInv!==bInv)return bInv-aInv
+        const aOwner=a.role==='Owner'?1:0,bOwner=b.role==='Owner'?1:0
+        if(aOwner!==bOwner)return aOwner-bOwner
+        return String(b.created_at||'').localeCompare(String(a.created_at||''))
+      })
+      const m=memberships[0]
+      if(!m.user_id)await supabase.from(T.teamMember).update({user_id:session.user.id}).eq('id',m.id).catch(()=>{})
       m.user_id=session.user.id
       setRole(m.role||'Agent')
       setMembership(m)
@@ -613,7 +637,7 @@ function useData(session){
   return{data,loading,role,membership,activeTeam,sync,fetchAll,add,update,remove,audit}
 }
 
-function Header({active,setActive,session,crm,lang,setLang}){const admin=[['dashboard','Report Dashboard',BarChart3],['team','Team CRM',Users],['audit','Audit Log',Search],['calendar','Appointment Calendar',CalendarDays],['reminders','Reminders + Push',Bell],['owners','Owner Listings',Home],['projects','New Project Listing',Building2],['agents','Agent Sharing Group',Share2],['requests','Buyer Requests',Search],['contacts','Contact Database',Users],['matches','Buyer Matching',Handshake],['export','Excel Export',Download],['install','Install',Smartphone]],agent=[['agents','Submit Listing',Share2],['install','Install',Smartphone]],tabs=crm.role==='Co-Agent'?agent:admin;return <header className="topbar"><div className="topbar-inner"><div className="brand"><div className="brand-icon"><Building2/></div><div><h1>{APP_NAME}</h1><p>{crm.role==='Co-Agent'?tr('Co-agent listing submission only'):tr('Team CRM + Invite Session Fix')}</p></div></div><div className="top-actions"><Badge tone={crm.sync==='cloud'?'green':'amber'}>{crm.sync==='cloud'?<Cloud size={13}/>:<CloudOff size={13}/>} {crm.sync==='cloud'?tr('Cloud Sync On'):tr('Local Demo Mode')}</Badge><Badge tone={crm.role==='Co-Agent'?'purple':'blue'}>{tr(crm.role||'Owner')}</Badge><LanguageSelect lang={lang} setLang={setLang}/><B variant="secondary"onClick={crm.fetchAll}><RefreshCw size={16}/>Refresh</B>{session&&<B variant="danger"onClick={()=>supabase.auth.signOut()}><LogOut size={16}/>Logout</B>}</div></div><nav className="tabs">{tabs.map(([id,label,Icon])=><button key={id}className={active===id?'active':''}onClick={()=>setActive(id)}><Icon size={16}/>{tr(label)}</button>)}</nav></header>}
+function Header({active,setActive,session,crm,lang,setLang}){const admin=[['dashboard','Report Dashboard',BarChart3],['team','Team CRM',Users],['audit','Audit Log',Search],['calendar','Appointment Calendar',CalendarDays],['reminders','Reminders + Push',Bell],['owners','Owner Listings',Home],['projects','New Project Listing',Building2],['agents','Agent Sharing Group',Share2],['requests','Buyer Requests',Search],['contacts','Contact Database',Users],['matches','Buyer Matching',Handshake],['export','Excel Export',Download],['install','Install',Smartphone]],agent=[['agents','Submit Listing',Share2],['install','Install',Smartphone]],tabs=crm.role==='Co-Agent'?agent:admin;return <header className="topbar"><div className="topbar-inner"><div className="brand"><div className="brand-icon"><Building2/></div><div><h1>{APP_NAME}</h1><p>{crm.role==='Co-Agent'?tr('Co-agent listing submission only'):tr('Team CRM + Invite Accept Fix')}</p></div></div><div className="top-actions"><Badge tone={crm.sync==='cloud'?'green':'amber'}>{crm.sync==='cloud'?<Cloud size={13}/>:<CloudOff size={13}/>} {crm.sync==='cloud'?tr('Cloud Sync On'):tr('Local Demo Mode')}</Badge><Badge tone={crm.role==='Co-Agent'?'purple':'blue'}>{tr(crm.role||'Owner')}</Badge><LanguageSelect lang={lang} setLang={setLang}/><B variant="secondary"onClick={crm.fetchAll}><RefreshCw size={16}/>Refresh</B>{session&&<B variant="danger"onClick={()=>supabase.auth.signOut()}><LogOut size={16}/>Logout</B>}</div></div><nav className="tabs">{tabs.map(([id,label,Icon])=><button key={id}className={active===id?'active':''}onClick={()=>setActive(id)}><Icon size={16}/>{tr(label)}</button>)}</nav></header>}
 
 function Dashboard({data,matches}){const hot=Object.entries(data.request.reduce((a,r)=>{String(r.preferred_area||'').split(/[,.\/|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>a[x]=(a[x]||0)+1);return a},{})).sort((a,b)=>b[1]-a[1]).slice(0,8);const stats=[['Owner Listings',data.owner.filter(x=>x.status==='Active').length,Home],['Shared Agent Listings',data.agent.filter(x=>x.status==='Active').length,Share2],['New Project Listings',data.project.filter(x=>x.status==='Active').length,Building2],['Buyer Requests',data.request.filter(x=>!['Closed','Lost'].includes(x.status)).length,Users],['Strong Matches',matches.filter(x=>x.score>=75).length,Handshake],['Appointments',data.appt.filter(x=>x.status!=='Done').length,CalendarDays],['Reminders',data.rem.filter(x=>x.status!=='Done').length,Bell],['Contacts',data.contact.length,Users]];return <div className="stack"><div className="stats">{stats.map(([l,v,Icon])=><C key={l}><div className="stat-row"><div><p>{l}</p><h2>{v}</h2></div><div className="stat-icon"><Icon/></div></div></C>)}</div><div className="grid two"><C><h2>Top Buyer Matches</h2><div className="list">{matches.slice(0,6).map(m=><div className="item"key={m.listing.id+m.request.id}><div><strong>{m.request.client_name}</strong><p>{m.listing.title}</p><small>{m.listing.source_label} · {m.reasons.join(' · ')}</small></div><Badge tone={m.score>=80?'green':'amber'}>{m.score}%</Badge></div>)}{!matches.length&&<p className="muted">No matches yet.</p>}</div></C><C><h2>Hot Areas</h2>{hot.map(([a,c])=><p className="report-line"key={a}><b>{a}</b><span>{c}</span></p>)}{!hot.length&&<p className="muted">No data yet.</p>}</C></div></div>}
 

@@ -273,3 +273,24 @@ Fixes:
 - Adds a clearer message if login session is not ready.
 
 No Supabase migration is required if you already ran the V8.5 invite migration and V8.8 invite owner policy SQL.
+
+
+## V9 Invite Accept Fix
+
+This version fixes the invite acceptance flow.
+
+Problem fixed:
+- Invited agents sometimes became `Owner` of their own Default Team instead of joining the inviter's team as `Co-Agent`.
+
+V9 behavior:
+- The App stores the invite token before login/signup.
+- After login, the App calls the secure Supabase RPC `accept_team_invite`.
+- Supabase inserts/updates the member in the inviter's team using the invite role.
+- Other automatically-created memberships for the invited user are set to inactive.
+- The invite token is removed from the URL/localStorage after successful acceptance.
+
+Required Supabase SQL:
+- `supabase/migration_v9_invite_accept_fix.sql`
+
+Optional current-data cleanup:
+- `supabase/optional_cleanup_duplicate_members_v9.sql`
